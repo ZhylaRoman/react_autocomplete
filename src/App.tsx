@@ -1,18 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import './App.scss';
 import { peopleFromServer } from './data/people';
 import { Person } from './types/Person';
 
 interface AppProps {
   onSelected?: (person: Person) => void;
+  delay?: number;
 }
 
-export const App: React.FC<AppProps> = ({ onSelected }) => {
+export const App: React.FC<AppProps> = ({ onSelected, delay = 300 }) => {
   const [query, setQuery] = useState('');
+  const [appliedQuery, setAppliedQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const timerId = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = appliedQuery.trim().toLowerCase();
 
   const filteredPeople = useMemo(() => {
     if (!normalizedQuery) {
@@ -29,8 +32,23 @@ export const App: React.FC<AppProps> = ({ onSelected }) => {
   const handleSelect = (person: Person) => {
     setSelectedPerson(person);
     setQuery(person.name);
+    setAppliedQuery(person.name);
     setIsOpen(false);
     onSelected?.(person);
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(event.target.value);
+    setSelectedPerson(null);
+    setIsOpen(true);
+
+    if (timerId.current) {
+      clearTimeout(timerId.current);
+    }
+
+    timerId.current = setTimeout(() => {
+      setAppliedQuery(event.target.value);
+    }, delay);
   };
 
   return (
@@ -54,10 +72,7 @@ export const App: React.FC<AppProps> = ({ onSelected }) => {
               data-cy="search-input"
               value={query}
               onFocus={() => setIsOpen(true)}
-              onChange={event => {
-                setQuery(event.target.value);
-                setSelectedPerson(null);
-              }}
+              onChange={handleChange}
               onBlur={() => setIsOpen(false)}
             />
           </div>
@@ -69,7 +84,10 @@ export const App: React.FC<AppProps> = ({ onSelected }) => {
                   key={person.slug}
                   className="dropdown-item"
                   data-cy="suggestion-item"
-                  onMouseDown={() => handleSelect(person)}
+                  onMouseDown={event => {
+                    event.preventDefault();
+                    handleSelect(person);
+                  }}
                 >
                   <p className="has-text-link">{person.name}</p>
                 </div>
